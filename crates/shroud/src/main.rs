@@ -16,6 +16,12 @@ use std::path::{Path, PathBuf};
 use shroud_core::config::parse;
 use shroud_core::protocol::{Attach, Control, socket_path};
 
+/// CI sets SHROUD_VERSION for dev builds (`0.2.0-dev.12+g3f9c2ab`); other builds say Cargo.toml's version.
+const VERSION: &str = match option_env!("SHROUD_VERSION") {
+    Some(v) => v,
+    None => env!("CARGO_PKG_VERSION"),
+};
+
 const USAGE: &str = "usage:
   shroud                             attach to the most recent session, or start `default`
   shroud session new [<name>]        start a session in this directory and attach
@@ -84,7 +90,7 @@ fn run() -> io::Result<i32> {
             Ok(0)
         }
         ["--version" | "-V"] => {
-            println!("shroud {}", env!("CARGO_PKG_VERSION"));
+            println!("shroud {VERSION}");
             Ok(0)
         }
         ["help" | "--help" | "-h"] => {

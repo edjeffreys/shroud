@@ -43,6 +43,7 @@ export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
 
 ## Releasing
 
-1. Bump `version` in the root `Cargo.toml` and run `cargo build` so `Cargo.lock` follows.
-2. After that change is merged, tag `main` as `v<version>` and push the tag. `.github/workflows/release.yml` checks the tag matches, builds every target, and publishes the release.
-3. Releases are immutable once published, so try a release first with the workflow's manual run (`gh workflow run release`), which builds the same artifacts without publishing.
+1. Tag `main` as `v<version>`, matching the root `Cargo.toml`, and push the tag. `.github/workflows/release.yml` checks they match, builds every target, and publishes the release. To try it first, run the workflow by hand (`gh workflow run release`): it builds the same artifacts without publishing.
+2. Straight after, bump `version` in the root `Cargo.toml` to the next one (and run `cargo build` so `Cargo.lock` follows). Dev builds are numbered from it as `<next>-dev.<commits since the tag>+g<commit>`, which sorts after the release they follow; the workflow warns when the bump is missing.
+
+Dev builds need nothing: whenever CI passes on `main`, the workflow replaces the `dev` prerelease with fresh binaries. `shroud --version` reports the dev version because CI sets `SHROUD_VERSION` at build time.

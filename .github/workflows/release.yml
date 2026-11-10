@@ -1,6 +1,9 @@
-# Pushing a `v*` tag builds shroud natively for each target and publishes a GitHub Release
-# with a tarball and checksum per target. Running it by hand, or a PR that changes this file,
-# builds the same artifacts without publishing, to try a release before tagging.
+# Builds shroud natively for each target and publishes it.
+#
+# - A `v*` tag publishes a release: `shroud-<version>-<target>.tar.gz` for each target.
+# - CI passing on `main` replaces the `dev` prerelease: `shroud-dev-<target>.tar.gz`, always
+#   the newest main, reporting a version like `0.2.0-dev.12+g3f9c2ab`.
+# - A manual run, or a PR that changes this file, builds the same artifacts and publishes nothing.
 #
 # Each target builds on its own runner because crates/vt/build.rs builds libghostty-vt for
 # the machine it runs on. Linux builds on Ubuntu 22.04 so the binary runs on glibc 2.35+.
@@ -9,6 +12,10 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
   pull_request:
     paths: [.github/workflows/release.yml]
   workflow_dispatch:
@@ -16,22 +23,57 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.ref }}
+  # A newer main supersedes an older dev build; releases always finish.
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
 jobs:
   version:
+    # workflow_run fires on every CI result, including a fork's PR from a branch named main;
+    # only a green push to this repository's main makes a dev build.
+    if: >-
+      github.event_name != 'workflow_run' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-24.04
     outputs:
+      sha: ${{ steps.v.outputs.sha }}
       version: ${{ steps.v.outputs.version }}
+      name: ${{ steps.v.outputs.name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # workflow_run runs on main's head, which may have moved on; build what CI checked.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
       - id: v
-        name: Read the version, and check the tag matches it
+        name: Work out the version
         run: |
-          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
-            echo "::error::tag $GITHUB_REF_NAME doesn't match Cargo.toml's version $version"
-            exit 1
+          base=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            if [[ "$GITHUB_REF_NAME" != "v$base" ]]; then
+              echo "::error::tag $GITHUB_REF_NAME doesn't match Cargo.toml's version $base"
+              exit 1
+            fi
+            echo "version=$base" >> "$GITHUB_OUTPUT"
+            echo "name=shroud-$base" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # Commits since the last release tag, or since the start before the first one.
+          if last=$(git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null); then
+            n=$(git rev-list --count "$last..HEAD")
+            if [[ "$last" == "v$base" ]]; then
+              echo "::warning::Cargo.toml still says $base, the version $last released; bump it so dev builds sort after the release"
+            fi
+          else
+            n=$(git rev-list --count HEAD)
+          fi
+          echo "version=$base-dev.$n+g${sha:0:7}" >> "$GITHUB_OUTPUT"
+          echo "name=shroud-dev" >> "$GITHUB_OUTPUT"
 
   build:
     needs: version
@@ -45,11 +87,16 @@ jobs:
           - { target: aarch64-unknown-linux-gnu, runner: ubuntu-22.04-arm }
     runs-on: ${{ matrix.runner }}
     env:
-      NAME: shroud-${{ needs.version.outputs.version }}-${{ matrix.target }}
+      NAME: ${{ needs.version.outputs.name }}-${{ matrix.target }}
+      VERSION: ${{ needs.version.outputs.version }}
+      # What `shroud --version` reports; crates/shroud/src/main.rs falls back to Cargo.toml.
+      SHROUD_VERSION: ${{ needs.version.outputs.version }}
       # Rust's default for these targets; keeps the binary running on older macOS.
       MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.17.1
@@ -67,7 +114,7 @@ jobs:
         run: |
           bin=target/${{ matrix.target }}/release/shroud
           "$bin" --version
-          test "$("$bin" --version)" = "shroud ${{ needs.version.outputs.version }}"
+          test "$("$bin" --version)" = "shroud $VERSION"
           if [[ "$RUNNER_OS" == macOS ]]; then otool -L "$bin"; otool -l "$bin" | grep -A3 LC_BUILD_VERSION; else ldd "$bin"; fi
       - name: Package
         run: |
@@ -85,7 +132,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: github.ref_type == 'tag'
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [version, build]
     runs-on: ubuntu-24.04
     permissions:
@@ -95,8 +142,8 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      # A draft first, published only once every asset is uploaded: with immutable releases
-      # on, a published release can't gain or replace assets, so it must go out complete.
+      # A draft first, published only once every asset is uploaded, so a release never
+      # appears with some of its files missing.
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -109,3 +156,31 @@ jobs:
             --title "shroud ${{ needs.version.outputs.version }}" --generate-notes
           gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" *.tar.gz *.sha256 SHA256SUMS
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+
+  publish-dev:
+    if: github.event_name == 'workflow_run'
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      # Replaced whole: deleting the old release and its tag, then creating both afresh at
+      # this commit, so the `dev` tag always marks what the binaries were built from.
+      - name: Replace the dev prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.version.outputs.sha }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cd dist
+          cat *.sha256 > SHA256SUMS
+          cat SHA256SUMS
+          gh release delete dev --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          notes="The newest \`main\`, rebuilt whenever CI passes on it: $VERSION, from $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$SHA. Not a release; for those, see the latest release."
+          gh release create dev --repo "$GITHUB_REPOSITORY" --prerelease --latest=false --target "$SHA" \
+            --title "shroud dev ($VERSION)" --notes "$notes" \
+            *.tar.gz *.sha256 SHA256SUMS
