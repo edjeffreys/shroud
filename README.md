@@ -35,7 +35,15 @@ Features:
 
 ## Installing
 
-Each [release](https://github.com/edjeffreys/shroud/releases) has a prebuilt binary for macOS (Apple silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with a SHA-256 checksum for each:
+With [Homebrew](https://brew.sh), on macOS or Linux:
+
+```bash
+brew install edjeffreys/tap/shroud
+```
+
+`brew install --HEAD edjeffreys/tap/shroud` builds the newest `main` from source instead.
+
+Without Homebrew, each [release](https://github.com/edjeffreys/shroud/releases) has a prebuilt binary for macOS (Apple silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with a SHA-256 checksum for each:
 
 ```bash
 target=aarch64-apple-darwin   # or x86_64-apple-darwin, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu

@@ -99,7 +99,7 @@ htop redraws, so its PTY has 9 KiB to read.
 | change how a shell is spawned | `shroud/pty.rs` |
 | read what a pane is running | `shroud/process.rs` |
 | measure or gate performance | `shroud/bench.rs` (`shroud bench`, its floors), `smoke/src/sections/terminal.rs` (idle-CPU budget), `smoke/src/bin/shroud-compare.rs` (against tmux and zellij), `.github/workflows/ci.yml` |
-| change how releases and dev builds are built or published | `.github/workflows/release.yml` (one native runner per target; the version, including dev builds' `-dev.N+g<commit>`; the release and the rolling `dev` prerelease), `shroud/main.rs` `VERSION` (`SHROUD_VERSION` from CI), `.github/dependabot.yml` |
+| change how releases and dev builds are built or published | `.github/workflows/release.yml` (one native runner per target; the version, including dev builds' `-dev.N+g<commit>`; the release, the rolling `dev` prerelease, and the Homebrew formula in `edjeffreys/homebrew-tap`), `shroud/main.rs` `VERSION` (`SHROUD_VERSION` from CI), `.github/dependabot.yml` |
 | add an end-to-end check | `smoke/src/sections/` (one file per section, each with its own server), `smoke/src/harness.rs` (PTY clients read through libghostty-vt, waits), `smoke/src/ctl.rs` (`control.sock`, `shroud events`) |
 | change floating panes | `core/layout/float.rs` (placement), `shroud/server/tab/floats.rs` (floats beside the tree, moving a pane between float and tile), `shroud/server/tab.rs` (focus order, zoom), `core/render/compose.rs` (drawn after the tiles) |
 | change how images in panes reach the terminal | `vt/images.rs` (placements and pixels), `core/render/images.rs` (clipping and the Kitty protocol bytes), `shroud/server/images.rs` (what each client has been sent) |
