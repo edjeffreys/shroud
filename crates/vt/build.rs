@@ -35,7 +35,8 @@ fn main() {
 
 fn build_from_source() -> PathBuf {
     // Shared across profiles so debug, release and test don't each spend ~40s on it.
-    let cache = target_dir().join(format!("libvt-{VERSION}"));
+    // The CPU is in the name so a build from before -Dcpu=baseline is never reused.
+    let cache = target_dir().join(format!("libvt-{VERSION}-baseline"));
     let prefix = cache.join("prefix");
     if prefix.join("lib/libghostty-vt.a").exists() {
         return prefix;
@@ -53,10 +54,13 @@ fn build_from_source() -> PathBuf {
     let src = cache.join(format!("libghostty-vt-{VERSION}"));
 
     // Built optimised regardless of cargo profile: a debug libvt makes every debug run crawl.
+    // For a baseline CPU, not this machine's: Zig defaults to native, so a binary built on a
+    // CI runner would use instructions (AVX-512, say) users' CPUs lack and die with SIGILL.
+    // The SIMD it bundles (simdutf, highway) picks its code path at runtime anyway.
     let staging = cache.join("prefix.tmp");
     let _ = std::fs::remove_dir_all(&staging);
     let status = Command::new("zig")
-        .args(["build", "-Doptimize=ReleaseFast", "--prefix"])
+        .args(["build", "-Doptimize=ReleaseFast", "-Dcpu=baseline", "--prefix"])
         .arg(&staging)
         .current_dir(&src)
         .status();

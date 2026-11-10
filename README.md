@@ -45,7 +45,13 @@ tar -xzf "shroud-${version}-${target}.tar.gz"
 install "shroud-${version}-${target}/shroud" ~/.local/bin/   # or anywhere on your PATH
 ```
 
-Or build it yourself.
+To try the newest `main`, the [`dev` prerelease](https://github.com/edjeffreys/shroud/releases/tag/dev) is rebuilt whenever CI passes on it, at fixed links:
+
+```bash
+curl -LO "https://github.com/edjeffreys/shroud/releases/download/dev/shroud-dev-${target}.tar.gz"
+```
+
+`shroud --version` says which commit a dev build is, such as `0.2.0-dev.12+g3f9c2ab`. Or build it yourself.
 
 ## Building
 
