@@ -2,8 +2,9 @@
 #
 # - A `v*` tag publishes a release, `shroud-<version>-<target>.tar.gz` for each target, and
 #   updates Formula/shroud.rb in edjeffreys/homebrew-tap to match.
-# - CI passing on `main` replaces the `dev` prerelease: `shroud-dev-<target>.tar.gz`, always
-#   the newest main, reporting a version like `0.2.0-dev.12+g3f9c2ab`.
+# - CI passing on `main` replaces the `dev` prerelease, `shroud-dev-<target>.tar.gz`, and updates
+#   Formula/shroud-dev.rb in the tap: always the newest main, reporting a version like
+#   `0.2.0-dev.12+g3f9c2ab`.
 # - A manual run, or a PR that changes this file, builds the same artifacts and publishes nothing.
 #
 # Each target builds on its own runner because crates/vt/build.rs builds libghostty-vt for
@@ -164,6 +165,9 @@ jobs:
     needs: [version, publish]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
       - uses: actions/download-artifact@v8
         with:
           path: dist
@@ -172,73 +176,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ needs.version.outputs.version }}
-          REPO: ${{ github.repository }}
-        run: |
-          sum() { cut -d' ' -f1 "dist/shroud-$VERSION-$1.tar.gz.sha256"; }
-          url() { echo "https://github.com/$REPO/releases/download/v$VERSION/shroud-$VERSION-$1.tar.gz"; }
-          git clone -q "https://x-access-token:$TOKEN@github.com/edjeffreys/homebrew-tap.git" tap
-          mkdir -p tap/Formula
-          if [[ ! -f tap/README.md ]]; then
-            printf "# edjeffreys/tap\n\nHomebrew formulae, written by each project's release workflow.\n\n\`\`\`sh\nbrew install edjeffreys/tap/shroud          # the latest release\nbrew install --HEAD edjeffreys/tap/shroud   # main, built from source\n\`\`\`\n" > tap/README.md
-          fi
-          cat > tap/Formula/shroud.rb <<RUBY
-          # Written by shroud's release workflow; changes here are overwritten at the next release.
-          class Shroud < Formula
-            desc "Terminal multiplexer for modern terminals, built on libghostty-vt"
-            homepage "https://github.com/$REPO"
-            version "$VERSION"
-            license "MIT"
-
-            on_macos do
-              on_arm do
-                url "$(url aarch64-apple-darwin)"
-                sha256 "$(sum aarch64-apple-darwin)"
-              end
-              on_intel do
-                url "$(url x86_64-apple-darwin)"
-                sha256 "$(sum x86_64-apple-darwin)"
-              end
-            end
-
-            on_linux do
-              on_arm do
-                url "$(url aarch64-unknown-linux-gnu)"
-                sha256 "$(sum aarch64-unknown-linux-gnu)"
-              end
-              on_intel do
-                url "$(url x86_64-unknown-linux-gnu)"
-                sha256 "$(sum x86_64-unknown-linux-gnu)"
-              end
-            end
-
-            head do
-              url "https://github.com/$REPO.git", branch: "main"
-              depends_on "rust" => :build
-              depends_on "zig" => :build
-            end
-
-            def install
-              if build.head?
-                # Homebrew's sandbox allows writes only inside the build directory.
-                ENV["ZIG_GLOBAL_CACHE_DIR"] = buildpath/".zig-cache"
-                system "cargo", "install", *std_cargo_args(path: "crates/shroud")
-              else
-                bin.install "shroud"
-              end
-            end
-
-            test do
-              assert_match "shroud ", shell_output("#{bin}/shroud --version")
-            end
-          end
-          RUBY
-          cat tap/Formula/shroud.rb
-          cd tap
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/shroud.rb README.md
-          git diff --cached --quiet || git commit -m "shroud $VERSION"
-          git push origin HEAD:main
+        run: .github/scripts/update-tap.sh shroud "$VERSION" "v$VERSION" "shroud-$VERSION"
 
   publish-dev:
     if: github.event_name == 'workflow_run'
@@ -267,3 +205,25 @@ jobs:
           gh release create dev --repo "$GITHUB_REPOSITORY" --prerelease --latest=false --target "$SHA" \
             --title "shroud dev ($VERSION)" --notes "$notes" \
             *.tar.gz *.sha256 SHA256SUMS
+
+  # Formula/shroud-dev.rb, pointing at the binaries just published. Between the release above
+  # and this push, an install can briefly see new binaries with old checksums and fail; a retry
+  # a moment later works.
+  homebrew-dev:
+    needs: [version, publish-dev]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Update the dev formula
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Homebrew has no use for the commit; the count still orders the builds.
+          VERSION: ${{ needs.version.outputs.version }}
+        run: .github/scripts/update-tap.sh shroud-dev "${VERSION%%+*}" dev shroud-dev
