@@ -1,0 +1,8 @@
+name = "sessions"
+version = "0.1.0"
+api = "0.1"
+description = "Saves each session's tabs, splits and directories, and restores them after a restart."
+
+[commands]
+save = { key = "g s", description = "save every session now" }
+restore = { key = "g r", description = "reopen saved sessions that aren't running" }

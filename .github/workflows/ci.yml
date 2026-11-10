@@ -1,0 +1,44 @@
+# Correctness, then the performance floors (`shroud bench --check`) and the end-to-end
+# smoke test, which includes the idle-CPU budget.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.1
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'crates/vt/build.rs') }}
+      - run: cargo fmt --check && cargo fmt --check --manifest-path fuzz/Cargo.toml
+      - run: cargo test
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo build --release
+      - run: target/release/shroud bench --check
+      - run: cargo build
+      - run: cargo run -p shroud-smoke -- target/debug/shroud

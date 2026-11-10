@@ -1,0 +1,21 @@
+[package]
+name = "shroud"
+description = "A terminal multiplexer for modern terminals, built on libghostty-vt."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+shroud-core.workspace = true
+shroud-vt.workspace = true
+shroud-plugins.workspace = true
+rustix.workspace = true
+signal-hook.workspace = true
+libc.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

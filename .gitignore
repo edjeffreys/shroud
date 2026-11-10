@@ -1,0 +1,24 @@
+# Build output (fuzz/ has its own .gitignore for its target, corpus and artifacts)
+/target
+
+# insta's pending reviews; only accepted .snap files belong in git
+*.snap.new
+*.pending-snap
+
+# Profiling and coverage
+*.profraw
+*.profdata
+perf.data*
+flamegraph.svg
+
+# Local environment
+.env
+.envrc
+.direnv/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store

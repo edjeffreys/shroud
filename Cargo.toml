@@ -1,0 +1,35 @@
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/vt", "crates/plugins", "crates/shroud", "crates/smoke"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+license = "MIT"
+repository = "https://github.com/edjeffreys/shroud"
+
+[workspace.dependencies]
+shroud-core = { path = "crates/core" }
+shroud-vt = { path = "crates/vt" }
+shroud-plugins = { path = "crates/plugins" }
+rustix = { version = "1", features = ["event", "fs", "process", "pty", "stdio", "termios"] }
+signal-hook = "0.3"
+libc = "0.2"
+insta = "1"
+unicode-width = "0.2"
+toml = { version = "1.2", default-features = false, features = ["std", "parse"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+kdl = { version = "6.7", default-features = false, features = ["span"] }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_debug_implementations = "allow"
+
+[workspace.lints.clippy]
+module_inception = "allow"
+
+[profile.release]
+debug = "line-tables-only"

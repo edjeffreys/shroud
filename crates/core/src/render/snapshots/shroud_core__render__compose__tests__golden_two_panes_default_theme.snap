@@ -1,0 +1,21 @@
+---
+source: crates/core/src/render/compose.rs
+expression: "visible(&two_panes(&Theme::default()))"
+---
+\e[?2026h
+\e[0m
+\e[H
+\e[2J
+\e[1;1H$ ls
+\e[34m│
+\e[31merr
+\e[2;5H
+\e[34m│
+\e[3;5H│
+\e[0m
+\e[0 q
+\e[1;3H
+\e[?25h
+\e]2;
+\e\\
+\e[?2026l

@@ -1,0 +1,4 @@
+name = "hints"
+version = "0.1.0"
+api = "0.1"
+description = "After a pause in a leader sequence, shows what each next key does."
