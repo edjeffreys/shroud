@@ -1,0 +1,111 @@
+# Pushing a `v*` tag builds shroud natively for each target and publishes a GitHub Release
+# with a tarball and checksum per target. Running it by hand, or a PR that changes this file,
+# builds the same artifacts without publishing, to try a release before tagging.
+#
+# Each target builds on its own runner because crates/vt/build.rs builds libghostty-vt for
+# the machine it runs on. Linux builds on Ubuntu 22.04 so the binary runs on glibc 2.35+.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [.github/workflows/release.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Read the version, and check the tag matches it
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME doesn't match Cargo.toml's version $version"
+            exit 1
+          fi
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: aarch64-apple-darwin, runner: macos-15 }
+          - { target: x86_64-apple-darwin, runner: macos-15-intel }
+          - { target: x86_64-unknown-linux-gnu, runner: ubuntu-22.04 }
+          - { target: aarch64-unknown-linux-gnu, runner: ubuntu-22.04-arm }
+    runs-on: ${{ matrix.runner }}
+    env:
+      NAME: shroud-${{ needs.version.outputs.version }}-${{ matrix.target }}
+      # Rust's default for these targets; keeps the binary running on older macOS.
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.1
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: release-${{ matrix.target }}-${{ hashFiles('Cargo.lock', 'crates/vt/build.rs') }}
+      - run: cargo build --release --locked -p shroud --target ${{ matrix.target }}
+      - name: Check the binary runs and reports its version
+        run: |
+          bin=target/${{ matrix.target }}/release/shroud
+          "$bin" --version
+          test "$("$bin" --version)" = "shroud ${{ needs.version.outputs.version }}"
+          if [[ "$RUNNER_OS" == macOS ]]; then otool -L "$bin"; otool -l "$bin" | grep -A3 LC_BUILD_VERSION; else ldd "$bin"; fi
+      - name: Package
+        run: |
+          mkdir "$NAME"
+          cp target/${{ matrix.target }}/release/shroud LICENSE README.md "$NAME/"
+          tar -czf "$NAME.tar.gz" "$NAME"
+          if command -v sha256sum >/dev/null; then sha256sum "$NAME.tar.gz"; else shasum -a 256 "$NAME.tar.gz"; fi > "$NAME.tar.gz.sha256"
+          cat "$NAME.tar.gz.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: |
+            ${{ env.NAME }}.tar.gz
+            ${{ env.NAME }}.tar.gz.sha256
+          if-no-files-found: error
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      # A draft first, published only once every asset is uploaded: with immutable releases
+      # on, a published release can't gain or replace assets, so it must go out complete.
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd dist
+          cat *.sha256 > SHA256SUMS
+          cat SHA256SUMS
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft \
+            --title "shroud ${{ needs.version.outputs.version }}" --generate-notes
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" *.tar.gz *.sha256 SHA256SUMS
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false

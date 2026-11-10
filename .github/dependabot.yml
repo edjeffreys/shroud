@@ -1,0 +1,19 @@
+# Weekly, grouped so a week's updates arrive as one PR per ecosystem.
+# Not covered: libghostty-vt (VERSION and SHA256 in crates/vt/build.rs; see CLAUDE.md)
+# and the Zig version pinned in the workflows.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directories: ["/", "/fuzz"]
+    schedule:
+      interval: weekly
+    groups:
+      cargo:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

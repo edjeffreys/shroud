@@ -33,6 +33,20 @@ Features:
 - your terminal's real colours passed to pane programs, OSC 8 links, OSC 52, notifications and images in panes;
 - `shroud bench`, a frame-time overlay, and performance floors checked in CI.
 
+## Installing
+
+Each [release](https://github.com/edjeffreys/shroud/releases) has a prebuilt binary for macOS (Apple silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with a SHA-256 checksum for each:
+
+```bash
+target=aarch64-apple-darwin   # or x86_64-apple-darwin, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
+version=0.1.0
+curl -LO "https://github.com/edjeffreys/shroud/releases/download/v${version}/shroud-${version}-${target}.tar.gz"
+tar -xzf "shroud-${version}-${target}.tar.gz"
+install "shroud-${version}-${target}/shroud" ~/.local/bin/   # or anywhere on your PATH
+```
+
+Or build it yourself.
+
 ## Building
 
 You need Rust (stable) and Zig 0.17.x. Zig only builds libghostty-vt.
@@ -56,7 +70,7 @@ shroud is developed and tested in Ghostty. Other terminals that speak the kitty 
 ## Usage
 
 ```bash
-target/release/shroud
+shroud    # or target/release/shroud if you built it
 ```
 
 Running `shroud` attaches to the session you used most recently, starting the server and a session called `default` if needed. The server keeps every session's panes alive after you detach.

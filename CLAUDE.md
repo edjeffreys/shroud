@@ -40,3 +40,9 @@ export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
 1. Bump `VERSION` and `SHA256` in `crates/vt/build.rs`. Take `SHA256` from the release's signed `SHA256SUMS`.
 2. Regenerate the bindings only if you need new API: `scripts/gen-bindings.sh <prefix>`, where `<prefix>` is `target/libvt-<version>/prefix`. A 1.x upgrade never requires it.
 3. Zig's version is pinned by libghostty-vt's `build.zig.zon` (`minimum_zig_version`).
+
+## Releasing
+
+1. Bump `version` in the root `Cargo.toml` and run `cargo build` so `Cargo.lock` follows.
+2. After that change is merged, tag `main` as `v<version>` and push the tag. `.github/workflows/release.yml` checks the tag matches, builds every target, and publishes the release.
+3. Releases are immutable once published, so try a release first with the workflow's manual run (`gh workflow run release`), which builds the same artifacts without publishing.
