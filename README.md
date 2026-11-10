@@ -35,13 +35,19 @@ Features:
 
 ## Installing
 
-With [Homebrew](https://brew.sh), on macOS or Linux:
+With [Homebrew](https://brew.sh), on macOS or Linux. Homebrew asks you to trust a formula from a third-party tap before it loads it:
 
 ```bash
+brew trust --formula edjeffreys/tap/shroud
 brew install edjeffreys/tap/shroud
 ```
 
-`brew install --HEAD edjeffreys/tap/shroud` builds the newest `main` from source instead.
+For the newest `main` instead, install `edjeffreys/tap/shroud-dev` (prebuilt whenever CI passes on `main`; trust it the same way), or `brew install --HEAD edjeffreys/tap/shroud` to build it from source. `shroud` and `shroud-dev` both install `shroud`, so have one at a time. In a Brewfile:
+
+```ruby
+tap "edjeffreys/tap"
+brew "edjeffreys/tap/shroud", trusted: true   # or "edjeffreys/tap/shroud-dev"
+```
 
 Without Homebrew, each [release](https://github.com/edjeffreys/shroud/releases) has a prebuilt binary for macOS (Apple silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with a SHA-256 checksum for each:
 
