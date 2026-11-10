@@ -48,7 +48,7 @@ The cost is two toolchains: Zig builds the library, Rust builds everything else.
 
 ### How libghostty-vt gets built
 
-`crates/vt/build.rs` downloads the release tarball, **checks its SHA-256** against the value pinned in `build.rs` (taken from the release's signed `SHA256SUMS`), runs `zig build -Doptimize=ReleaseFast`, and links the result statically along with the C++ runtime. The build is cached in `target/` across profiles.
+`crates/vt/build.rs` downloads the release tarball, **checks its SHA-256** against the value pinned in `build.rs` (taken from the release's signed `SHA256SUMS`), runs `zig build -Doptimize=ReleaseFast -Dcpu=baseline`, and links the result statically along with the C++ runtime. The build is cached in `target/` across profiles. **It targets a baseline CPU**, not the build machine's: Zig defaults to native, so a release built on a CI runner would otherwise use instructions users' CPUs may lack and crash with SIGILL. The SIMD libraries it bundles choose their code path at runtime, so little speed is lost. (On macOS, libghostty-vt already builds for a generic CPU.) A prefix passed with `SHROUD_LIBVT_DIR` should be built the same way.
 
 The release tarball matters: it carries the `LIB_VERSION` file that switches the build into library mode, which bundles the SIMD dependencies (simdutf, highway) into one archive. A GitHub archive of the tag would build the Ghostty app instead.
 

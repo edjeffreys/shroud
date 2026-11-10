@@ -38,7 +38,7 @@ export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
 ## Updating libghostty-vt
 
 1. Bump `VERSION` and `SHA256` in `crates/vt/build.rs`. Take `SHA256` from the release's signed `SHA256SUMS`.
-2. Regenerate the bindings only if you need new API: `scripts/gen-bindings.sh <prefix>`, where `<prefix>` is `target/libvt-<version>/prefix`. A 1.x upgrade never requires it.
+2. Regenerate the bindings only if you need new API: `scripts/gen-bindings.sh <prefix>`, where `<prefix>` is `target/libvt-<version>-baseline/prefix`. A 1.x upgrade never requires it.
 3. Zig's version is pinned by libghostty-vt's `build.zig.zon` (`minimum_zig_version`).
 
 ## Releasing
