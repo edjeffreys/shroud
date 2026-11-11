@@ -1,4 +1,7 @@
-# Weekly, grouped so a week's updates arrive as one PR per ecosystem.
+# Weekly, grouped so a week's minor and patch updates arrive as one PR per
+# ecosystem. Major bumps get a PR each: they usually need code changes, and in
+# the group they would hold the safe updates behind a red CI. Dependabot counts
+# 0.x -> 0.y as minor, so those (mlua, signal-hook) still land in the group.
 # Not covered: libghostty-vt (VERSION and SHA256 in crates/vt/build.rs; see CLAUDE.md)
 # and the Zig version pinned in the workflows.
 version: 2
@@ -10,6 +13,7 @@ updates:
     groups:
       cargo:
         patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -17,3 +21,4 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+        update-types: [minor, patch]

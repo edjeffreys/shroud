@@ -16,8 +16,8 @@ use rustix::process::Signal;
 // Events every connection gets; the rest need a subscription.
 const UNSUBSCRIBED: &[&str] = &["command", "overlay_key", "overlay_closed", "status"];
 
-pub fn ser_options() -> mlua::SerializeOptions {
-    mlua::SerializeOptions::new().serialize_none_to_null(false).serialize_unit_to_null(false)
+pub fn ser_options() -> mlua::serde::SerializeOptions {
+    mlua::serde::SerializeOptions::new().serialize_none_to_null(false).serialize_unit_to_null(false)
 }
 
 pub fn raw_api(lua: &Lua, state: &Rc<RefCell<State>>) -> mlua::Result<mlua::Table> {

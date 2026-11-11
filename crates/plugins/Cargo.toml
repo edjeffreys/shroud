@@ -10,7 +10,7 @@ repository.workspace = true
 
 [dependencies]
 shroud-core.workspace = true
-mlua = { version = "0.11", features = ["luajit", "vendored", "serialize"] }
+mlua = { version = "0.12", features = ["luajit", "vendored", "serialize"] }
 serde_json.workspace = true
 toml = { workspace = true, features = ["serde"] }
 serde.workspace = true

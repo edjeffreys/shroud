@@ -15,7 +15,7 @@ shroud-core = { path = "crates/core" }
 shroud-vt = { path = "crates/vt" }
 shroud-plugins = { path = "crates/plugins" }
 rustix = { version = "1", features = ["event", "fs", "process", "pty", "stdio", "termios"] }
-signal-hook = "0.3"
+signal-hook = "0.4"
 libc = "0.2"
 insta = "1"
 unicode-width = "0.2"

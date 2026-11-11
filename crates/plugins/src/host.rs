@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Instant;
 
-use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Thread, ThreadStatus, Value as LuaValue};
+use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Thread, Value as LuaValue};
 use serde_json::{Value, json};
 
 use crate::builtin::Files;
@@ -315,7 +315,7 @@ impl Host {
         st.write(json!({"cmd": "plugin_running", "plugin": null}));
         match result {
             Err(e) => st.report(plugin, &e.to_string()),
-            Ok(_) if thread.status() != ThreadStatus::Resumable => {}
+            Ok(_) if !thread.is_resumable() => {}
             Ok(LuaValue::Integer(id)) if st.sent.contains_key(&(id as u64)) => {
                 let cmd = st.sent.remove(&(id as u64)).unwrap_or_default();
                 st.waiting.insert(id as u64, (plugin, thread, cmd));
