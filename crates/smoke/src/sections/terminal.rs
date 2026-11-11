@@ -30,9 +30,13 @@ pub fn run(env: &Env, r: &mut Report) {
 fn colours(c: &mut Client, env: &Env, r: &mut Report) {
     c.send(b"\x1b]11;rgb:1010/2020/3030\x1b\\");
     c.settle();
-    c.send(b"printf '\\033]11;?\\033\\\\'; read -rs -d '\\' -t 2 r; echo \"bg=${r#*rgb:}\"\r");
+    // Echo goes off before the question, not with `read -s`: a reply that beats `read` to the
+    // tty would otherwise be echoed onto the row the answer is printed on.
+    c.send(b"stty -echo; printf '\\033]11;?\\033\\\\'; read -r -d '\\' -t 2 r; stty echo; echo \"bg=${r#*rgb:}\"\r");
     r.check("a pane program's OSC 11 query gets the terminal's real background", c.wait_line("bg=1010/2020/3030"));
-    c.send(b"printf '\\033[?2031h'; echo ar$((0))med; read -rs -d n -t 3 r; echo \"scheme=${r#*997;}\"\r");
+    c.send(
+        b"stty -echo; printf '\\033[?2031h'; echo ar$((0))med; read -r -d n -t 3 r; stty echo; echo \"scheme=${r#*997;}\"\r",
+    );
     c.wait_line("ar0med");
     let at = c.mark();
     c.send(b"\x1b[?997;2n");
@@ -284,27 +288,47 @@ fn jumping(c: &mut Client, r: &mut Report) {
     c.send(b"clear; printf '\\033]133;A\\007$ \\033]133;B\\007echo alpha\\r\\n\\033]133;C\\007alpha-out\\r\\n\\033]133;D;3\\007'; (exit 3)\r");
     c.wait_line("alpha-out");
     c.send(&[OUTPUT_START, b"echo beta-out\r"].concat());
-    c.wait_line("beta-out");
+    // Jump mode starts at the last finished command, and beta finishes only with the mark
+    // before its next prompt: jumping on `beta-out` alone could start at alpha.
+    c.wait(WAIT, |c| {
+        let rows = c.rows();
+        rows.iter().position(|r| r == "beta-out").is_some_and(|i| rows.get(i + 1).is_some_and(|r| r.ends_with('$')))
+    });
+    // Each wait looks for what only its own key can show, so the next key can't overtake it:
+    // beta succeeded (the smoke shell sends no input marks, so the bar has no command line).
     c.send(&[LEADER, b"["].concat());
-    let first = c.wait(WAIT, |c| c.status().contains("JUMP") && c.status().contains('/'));
+    let first = c.wait(WAIT, |c| c.status().contains("JUMP") && c.status().contains('✓'));
     c.send(b"[");
     let second = c.wait(WAIT, |c| c.status().contains("echo alpha") && c.status().contains("✗3"));
     r.check_or("jump mode names the selected command and its exit code in the bar", first && second, c.status());
     let at = c.mark();
     c.send(b"Y");
     let copied = c.wait_raw(at, b"\x1b]52;c;JCBlY2hvIGFscGhhCmFscGhhLW91dA==");
-    r.check(
+    let left = c.wait(WAIT, |c| !c.status().contains("JUMP"));
+    r.check_or(
         "Y in jump mode copies that command and its output, and leaves",
-        copied && c.wait(WAIT, |c| !c.status().contains("JUMP")),
+        copied && left,
+        (copies(c.since(at)), c.status()),
     );
     c.send(&[LEADER, b"["].concat());
-    c.wait(WAIT, |c| c.status().contains("JUMP"));
+    c.wait(WAIT, |c| c.status().contains("JUMP") && c.status().contains('✓'));
     c.send(b"v");
     let visual = c.wait(WAIT, |c| c.status().contains("VISUAL"));
     let at = c.mark();
     c.send(b"y");
-    r.check(
+    let copied = c.wait_raw(at, b"\x1b]52;c;YmV0YS1vdXQ=");
+    r.check_or(
         "v in jump mode selects the command's output in visual mode",
-        visual && c.wait_raw(at, b"\x1b]52;c;YmV0YS1vdXQ="),
+        visual && copied,
+        (copies(c.since(at)), c.status()),
     );
+}
+
+/// What each OSC 52 in `raw` put on the clipboard, still in base64, for a failed copy check.
+fn copies(raw: &[u8]) -> Vec<String> {
+    String::from_utf8_lossy(raw)
+        .split("\x1b]52;c;")
+        .skip(1)
+        .map(|s| s.chars().take_while(|&ch| ch != '\x1b' && ch != '\x07').collect())
+        .collect()
 }
