@@ -91,6 +91,13 @@ fn output(c: &mut Client, r: &mut Report) {
     let ok =
         c.wait(WAIT, |c| contains(c.since(at), b"\x1b_Ga=d,q=2,d=i,") || contains(c.since(at), b"\x1b_Ga=d,q=2,d=I,"));
     r.check("clearing the screen takes the image away", ok);
+
+    // A program that dies mid-update leaves the hold open and sends nothing more: the
+    // capped hold has to end on its own, not at the next keypress.
+    c.send(b"printf '\\033[?2026h'; echo held-$((6*7))\r");
+    r.check("output under an abandoned synchronized update appears once the hold runs out", c.wait_line("held-42"));
+    c.send(b"printf '\\033[?2026l'; clear\r");
+    c.ready();
 }
 
 fn panes(c: &mut Client, r: &mut Report) {

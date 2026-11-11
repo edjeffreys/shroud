@@ -232,6 +232,7 @@ impl Server {
             for s in &mut self.sessions {
                 s.panes_mut().for_each(|(_, p)| p.flush());
             }
+            self.expire_holds();
             self.maybe_render();
             self.compress_idle();
             for (i, c) in self.clients.iter_mut().enumerate() {
@@ -281,6 +282,7 @@ impl Server {
             .chain(self.key_pending_deadline())
             .chain(self.plugin_host.deadline())
             .chain(self.compress_deadline())
+            .chain(self.hold_deadline())
             .chain(self.job_deadline());
         for d in self.esc_deadline.iter().flatten().copied().chain(status) {
             let left = d.saturating_duration_since(Instant::now());

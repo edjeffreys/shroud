@@ -15,6 +15,23 @@ use super::{Server, plugin_bar};
 const SYNC_END: &[u8] = b"\x1b[?2026l";
 
 impl Server {
+    /// The earliest moment a pane's mode-2026 hold runs out over output it held back.
+    pub(super) fn hold_deadline(&self) -> Option<Instant> {
+        self.sessions.iter().flat_map(|s| s.panes().filter_map(|(_, p)| p.hold_due())).min()
+    }
+
+    /// Ends expired holds and asks for the frame they held back. Clearing the hold also
+    /// clears its deadline, so the loop doesn't spin on one that's already past.
+    pub(super) fn expire_holds(&mut self) {
+        let mut expired = false;
+        for s in &mut self.sessions {
+            s.panes_mut().for_each(|(_, p)| expired |= p.expire_hold());
+        }
+        if expired {
+            self.invalidate();
+        }
+    }
+
     pub(super) fn maybe_render(&mut self) {
         let now = self.start.elapsed();
         let (dirty, backpressured) = self.frame_pressure();

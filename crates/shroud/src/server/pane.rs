@@ -225,11 +225,9 @@ impl Pane {
         if !self.dirty {
             return;
         }
-        if let Some(since) = self.held_since {
-            if since.elapsed() < MAX_HOLD {
-                return;
-            }
-            self.held_since = None;
+        self.expire_hold();
+        if self.held_since.is_some() {
+            return;
         }
         if self.snap.update(&self.term, &mut self.grid, links).is_ok()
             && let Ok(c) = self.snap.cursor()
@@ -262,6 +260,21 @@ impl Pane {
         if self.scrollback != Some(bytes) && self.term.set_scrollback_bytes(Some(bytes)).is_ok() {
             self.scrollback = Some(bytes);
         }
+    }
+
+    /// When a hold over undrawn output runs out. The loop wakes then: a program that died
+    /// mid-update sends nothing more, so no other event is due to draw what it held back.
+    pub fn hold_due(&self) -> Option<Instant> {
+        self.held_since.filter(|_| self.dirty).map(|since| since + MAX_HOLD)
+    }
+
+    /// Ends a hold that has run past `MAX_HOLD`; true if it was holding back output.
+    pub fn expire_hold(&mut self) -> bool {
+        if self.held_since.is_some_and(|since| since.elapsed() >= MAX_HOLD) {
+            self.held_since = None;
+            return self.dirty;
+        }
+        false
     }
 
     pub fn compress_due(&self, idle: Duration) -> Option<Instant> {
