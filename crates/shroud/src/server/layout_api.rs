@@ -61,6 +61,9 @@ impl Server {
                 p.type_line(cmd);
             }
         }
+        // Restoring a session comes through here; the tab should open on its tiles, with the
+        // floats a toggle away, rather than every float popping up over the work.
+        tab.floats_shown = false;
         self.invalidate();
         Ok(json!({"tab": at + 1}))
     }
