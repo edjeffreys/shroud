@@ -62,6 +62,8 @@ impl Server {
                 .collect();
             let area = tab.area();
             let st = &session.status;
+            let broadcasting = tab.broadcast.then(|| self.settings.theme.broadcasting());
+            let theme = broadcasting.as_ref().unwrap_or(&self.settings.theme);
             for c in self.clients.iter_mut().filter(|c| c.session == Some(session.id)) {
                 if c.size.is_none() || !c.needs_frame || c.wants_write() {
                     continue;
@@ -100,13 +102,14 @@ impl Server {
                     search = Some(j.label.clone());
                     own = Some(mine);
                 }
-                compose(&mut c.next, area, own.as_deref().unwrap_or(&views), focused, &self.settings.theme);
+                compose(&mut c.next, area, own.as_deref().unwrap_or(&views), focused, theme);
                 if area.h < c.next.grid.rows() {
                     let status = Status {
                         mode: c.mode(),
                         session: Some(&session.name),
                         tabs: &tabs,
                         zoomed: tab.is_zoomed(),
+                        broadcast: tab.broadcast,
                         cwd: st.cwd.as_deref(),
                         branch: st.branch.as_deref(),
                         message: search.as_deref().or(st.message()),

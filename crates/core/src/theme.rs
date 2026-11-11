@@ -8,6 +8,8 @@ use crate::render::color::Color;
 pub struct Theme {
     pub border_active: Color,
     pub border_inactive: Color,
+    /// Borders between panes that all get typed keys, while broadcast is on.
+    pub border_broadcast: Color,
     pub title_active: Color,
     pub title_inactive: Color,
     pub status_fg: Color,
@@ -32,6 +34,7 @@ impl Default for Theme {
         Theme {
             border_active: Color::Palette(4),
             border_inactive: Color::Palette(8),
+            border_broadcast: Color::Palette(1),
             title_active: Color::Palette(4),
             title_inactive: Color::Palette(8),
             status_fg: Color::Palette(8),
@@ -55,6 +58,13 @@ impl Default for Theme {
 impl Theme {
     pub fn border(&self, active: bool) -> Style {
         Style::fg(if active { self.border_active } else { self.border_inactive })
+    }
+
+    /// The theme a broadcasting tab is drawn with: every pane gets the keys, so every border
+    /// but the focused pane's says so. Focus keeps its own colour because the cursor, visual
+    /// mode and the mouse still follow it.
+    pub fn broadcasting(&self) -> Theme {
+        Theme { border_inactive: self.border_broadcast, ..self.clone() }
     }
 
     pub fn title(&self, active: bool) -> Style {
@@ -87,6 +97,7 @@ impl Theme {
         Some(match key {
             "border.active" => &mut self.border_active,
             "border.inactive" => &mut self.border_inactive,
+            "border.broadcast" => &mut self.border_broadcast,
             "title.active" => &mut self.title_active,
             "title.inactive" => &mut self.title_inactive,
             "status.fg" => &mut self.status_fg,
@@ -130,6 +141,7 @@ impl Theme {
     pub const TOKENS: &[&str] = &[
         "border.active",
         "border.inactive",
+        "border.broadcast",
         "title.active",
         "title.inactive",
         "status.fg",
@@ -168,6 +180,15 @@ mod tests {
         *t.token_mut("border.active").unwrap() = Color::Rgb(1, 2, 3);
         assert_eq!(t.border_active, Color::Rgb(1, 2, 3));
         assert!(t.token_mut("border.nope").is_none());
+    }
+
+    #[test]
+    fn broadcasting_recolours_only_the_unfocused_borders() {
+        let t = Theme::default();
+        let b = t.broadcasting();
+        assert_eq!(b.border(false), Style::fg(t.border_broadcast));
+        assert_eq!(b.border(true), t.border(true));
+        assert_eq!(Theme { border_inactive: t.border_inactive, ..b }, t);
     }
 
     #[test]

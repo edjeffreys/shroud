@@ -73,6 +73,8 @@ const DEFAULTS: &[(&str, &str)] = &[
     ("e", "float-or-tile"),
     // tmux's zoom and window rename; nvim's CTRL-W z only closes the preview window.
     ("z", "zoom"),
+    // tmux's synchronize-panes has no key; nvim's CTRL-W leaves B free.
+    ("B", "broadcast"),
     (",", "rename-tab"),
     // nvim's g<Tab> is the last accessed tab, and CTRL-^ the alternate file.
     ("g tab", "last-tab"),

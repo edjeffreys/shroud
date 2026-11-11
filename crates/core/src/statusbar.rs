@@ -47,6 +47,9 @@ pub struct Status<'a> {
     pub tabs: &'a [TabEntry<'a>],
     /// Shown where the mode goes when no mode is active.
     pub zoomed: bool,
+    /// Typed keys reach every pane drawn in the tab. Shown where the mode goes, after zoom,
+    /// since a zoomed tab draws, and so types into, only one pane.
+    pub broadcast: bool,
     pub cwd: Option<&'a str>,
     pub branch: Option<&'a str>,
     /// Replaces cwd and branch while set, e.g. the result of a copy.
@@ -72,6 +75,7 @@ pub fn draw(grid: &mut Grid, y: u16, s: &Status, theme: &Theme) {
     let end = grid.cols().saturating_sub(MARGIN);
     let mode = match s.mode {
         Mode::Normal if s.zoomed => Some(" ZOOM "),
+        Mode::Normal if s.broadcast => Some(" BROADCAST "),
         Mode::Normal => None,
         Mode::Leader => Some(" LEADER "),
         Mode::Jump => Some(" JUMP "),
@@ -312,6 +316,10 @@ mod tests {
         assert_eq!(row(&render(28, &s), 0), " ZOOM  s 1:api 2✓     09:41 ");
         let leader = Status { mode: Mode::Leader, ..s };
         assert!(row(&render(28, &leader), 0).starts_with(" LEADER "), "a mode outranks zoom");
+        let both = Status { broadcast: true, ..s };
+        assert!(row(&render(28, &both), 0).starts_with(" ZOOM "), "a zoomed tab types into one pane");
+        let broadcast = Status { zoomed: false, ..both };
+        assert_eq!(row(&render(32, &broadcast), 0), " BROADCAST  s 1:api 2✓    09:41 ");
     }
 
     #[test]

@@ -41,6 +41,8 @@ pub struct Tab {
     pub name: Option<String>,
     /// When the user last left this tab, for `last-tab`.
     pub left_at: Option<Instant>,
+    /// Typed keys and pastes go to every drawn pane (`receivers`), as tmux's synchronize-panes.
+    pub broadcast: bool,
     /// Drawn alone over the whole area; the rest keep their sizes underneath.
     zoomed: Option<PaneId>,
     previous: Option<PaneId>,
@@ -88,6 +90,7 @@ impl Tab {
             floats_shown: true,
             name: None,
             left_at: None,
+            broadcast: false,
             zoomed: None,
             previous: None,
             area,
@@ -125,6 +128,7 @@ impl Tab {
             floats_shown: true,
             name: None,
             left_at: None,
+            broadcast: false,
             zoomed: None,
             previous: None,
             area: pane_area(size),
@@ -181,6 +185,15 @@ impl Tab {
 
     pub fn is_zoomed(&self) -> bool {
         self.zoomed.is_some()
+    }
+
+    /// Who gets typed input: the panes you can see while broadcasting, so a hidden float or
+    /// the panes under a zoom never take keys you can't watch land; otherwise the focused one.
+    pub fn receivers(&self) -> Vec<PaneId> {
+        match self.broadcast {
+            true => self.views().into_iter().map(|v| v.pane).collect(),
+            false => vec![self.focused],
+        }
     }
 
     /// Only worth it with something to hide.

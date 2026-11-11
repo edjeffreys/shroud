@@ -54,6 +54,7 @@ shroud = {}
 ---@field mode "normal"|"leader"|"jump"|"visual"
 ---@field selection ("chars"|"lines"|"block")? In visual mode, the kind of selection being made.
 ---@field zoomed boolean
+---@field broadcast boolean Typed keys go to every pane drawn in the tab (`broadcast`).
 ---@field tabs {name: string?, active: boolean, badge: ("failed"|"done")?}[]
 ---@field message string?
 ---@field alert string? "config" or "plugin" when something needs attention.

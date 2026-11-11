@@ -101,6 +101,7 @@ pub const COMMANDS: &[(&str, Build)] = &[
     ("last-tab", |_| Action::LastTab),
     ("last-session", |_| Action::LastSession),
     ("zoom", |_| Action::ToggleZoom),
+    ("broadcast", |_| Action::ToggleBroadcast),
     ("float-or-tile", |_| Action::FloatOrTile),
     ("rename-tab", |_| Action::RenameTab),
     ("visual", |_| Action::Visual(Selecting::Nothing)),
