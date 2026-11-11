@@ -245,7 +245,8 @@ fn control(c: &mut Client, env: &Env, ev: &mut Events, r: &mut Report) {
         && root["parts"].as_array().map(Vec::len) == Some(2)
         && root["parts"][0]["size"] == 30.0
         && root["parts"][1]["split"] == "down"
-        && back["floats"][0]["w"] == 50;
+        && back["floats"][0]["w"] == 50
+        && back.get("floats_hidden").is_none();
     r.check_or("apply_layout builds a tab that reads back the same shape", shaped, (&made, &back));
     let (pa, pb, pc) = (
         root["parts"][0]["pane"].clone(),
@@ -329,6 +330,15 @@ fn control(c: &mut Client, env: &Env, ev: &mut Events, r: &mut Report) {
         eventually(WAIT, || matches!(lone_panes().as_slice(), [p] if p["float"] == false && p["focused"] == true));
     r.check_or("closing a tab's last tile turns its float into the tile", lone["ok"] == true && promoted, lone_panes());
     ctl.reply(json!({"id": 27, "cmd": "session_kill", "session": "lone"}));
+    let hidden_spec = json!({"root": {}, "floats": [{}], "floats_hidden": true});
+    let hidden = ctl.reply(json!({"id": 37, "cmd": "apply_layout", "session": "scripted", "layout": hidden_spec}));
+    let hidden_back =
+        ctl.reply(json!({"id": 38, "cmd": "layout", "session": "scripted", "tab": hidden["tab"]}))["layout"].clone();
+    r.check_or(
+        "a layout keeps whether its floats are shown",
+        hidden_back["floats_hidden"] == true,
+        (&hidden, &hidden_back),
+    );
     let ren = ctl.reply(json!({"id": 24, "cmd": "session_rename", "session": "scripted", "to": "scripted2"}));
     let listing = env.cli(&["session", "ls"]).1;
     let kill = ctl.reply(json!({"id": 25, "cmd": "session_kill", "session": "scripted2"}));

@@ -111,6 +111,7 @@ shroud = {}
 ---@class shroud.Layout
 ---@field root shroud.LayoutNode
 ---@field floats (shroud.LayoutNode|shroud.Float)[]?
+---@field floats_hidden boolean? The floats are toggled out of sight; `apply_layout` keeps them so.
 
 ---@class shroud.PluginSpec
 ---@field [1] string The source: "github:owner/repo", "git:<url>", "path:<dir>" or "builtin:<name>".
