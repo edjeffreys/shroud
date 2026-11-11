@@ -144,6 +144,7 @@ The leader is **`Ctrl+Space`**, and the keys after it follow **nvim's `CTRL-W` g
 
 - **Every command has a default key, and every key is rebindable**: a command without a key isn't accessible. Plugin commands suggest defaults too, used only when free, so installing a plugin never silently changes a key.
 - **`Ctrl+Space 1`–`9` go to tabs, so counts start with `0`** (`03w`, `010+`). This beat dropping counts or waiting on a timer. Unbinding a digit makes it start a count again.
+- **`replace = true` moves a command instead of adding a key** (D17). Binding a key adds to a command's keys, as nvim's mappings do, so moving `vsplit` to `|` left `v` bound too and listings showed both. `{ command = "vsplit", replace = true }` unbinds the command's default keys (and a plugin command's suggested key) but never a key config bound itself, so the result doesn't depend on the order of lines. It is opt in, per binding: dropping the defaults when any key is bound would break deliberate aliases such as `s`, `S` and `n`, and a switch to drop all defaults would turn a few moves into rewriting the whole table.
 - **Keys bound to a prefix of a sequence are reported** as problems rather than resolved by a timeout as nvim does.
 - **Jump mode's `[` / `]` and the leader-twice escape are grammar, not bindings.**
 - **The live table is rebuilt, not edited**: config's bindings, then plugin defaults where free, then runtime binds from the API or Lua (latest wins, lasting while their connection does). Removing a bind can't leave a stale key or lose the config binding it covered.
@@ -313,3 +314,4 @@ An nvim-style cursor over a pane's history, for scrolling, searching and copying
 | D14 | `Ctrl+Space 1`–`9` go to tabs; counts start with `0` | fast tab switching without a timer (§4) |
 | D15 | Shortcuts are config, with no default keys; command panes close on success | shortcuts exist only because a user wrote them (§7) |
 | D16 | Broadcast reaches only the panes that are drawn | typed keys never land where you can't see them; zoom types into one pane (§7) |
+| D17 | A binding can `replace` its command's default keys | moving a key shouldn't leave the old one bound; per binding, so aliases and the other defaults stay (§4) |

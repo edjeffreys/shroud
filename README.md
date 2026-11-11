@@ -212,6 +212,7 @@ status.bg = 0
 [keys.leader]                      # keys after the leader, merged over the table above
 "g t" = "next-tab"                 # space-separated keys make a sequence
 "x" = "none"                       # unbind a default
+"|" = { command = "vsplit", replace = true }  # the only vsplit key: v is unbound
 
 [keys.direct]                      # keys that act without the leader; panes never see them
 "ctrl+h" = "focus-left"
@@ -219,6 +220,8 @@ status.bg = 0
 "ctrl+k" = "focus-up"
 "ctrl+l" = "focus-right"
 ```
+
+Binding a key replaces whatever that key did, but the command keeps its default keys too, as a mapping does in nvim. To move a command rather than add a key for it, write `{ command = "vsplit", replace = true }`: its default keys are unbound, and so is a plugin command's suggested key. Keys you bound yourself stay, whatever order they are written in, and a key you free can be bound again. `replace` works in `[keys.direct]` too.
 
 Theme tokens: `border.active`, `border.inactive`, `border.broadcast` (the other panes' borders while a tab broadcasts), `title.active`, `title.inactive` (pane titles, with `pane_frames`), `status.fg`, `status.bg`, `status.mode`, `status.session`, `status.tab`, `status.tab_active`, `status.message`, `switcher.border`, `switcher.match`, `switcher.selected`, `badge.error`, `badge.done`.
 

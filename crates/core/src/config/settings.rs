@@ -4,7 +4,7 @@ use toml::Spanned;
 use toml::de::{DeTable, DeValue};
 
 use super::{Config, PluginSpec, Problem, Source, effective};
-use crate::input::bindings::parse_sequence;
+use crate::input::bindings::{Bindings, parse_sequence};
 use crate::input::chord::Chord;
 use crate::input::commands::{Command, command};
 use crate::input::shortcut::Shortcut;
@@ -129,9 +129,7 @@ impl Parser<'_> {
                                 continue;
                             }
                         };
-                        if let Some(cmd) = self.command(cmd) {
-                            self.config.bindings.bind_leader(seq, cmd);
-                        }
+                        self.bind(cmd, |b, cmd| b.bind_leader(seq, cmd));
                     }
                 }
                 "direct" => {
@@ -147,9 +145,7 @@ impl Parser<'_> {
                                 continue;
                             }
                         };
-                        if let Some(cmd) = self.command(cmd) {
-                            self.config.bindings.bind_direct(chord, cmd);
-                        }
+                        self.bind(cmd, |b, cmd| b.bind_direct(chord, cmd));
                     }
                 }
                 other => {
@@ -157,6 +153,52 @@ impl Parser<'_> {
                 }
             }
         }
+    }
+
+    /// Binds `cmd`, or a `{ command, replace }` table that also drops the command's default keys.
+    fn bind(&mut self, value: &Spanned<DeValue<'_>>, bind: impl FnOnce(&mut Bindings, Option<Command>)) {
+        let table = value.get_ref().as_table().filter(|t| t.iter().any(|(k, _)| k.get_ref() == "command"));
+        let Some(table) = table else {
+            if let Some(cmd) = self.command(value) {
+                bind(&mut self.config.bindings, cmd);
+            }
+            return;
+        };
+        let (mut cmd, mut replace) = (None, false);
+        for (k, v) in table {
+            match k.get_ref().as_ref() {
+                "command" => match v.get_ref() {
+                    DeValue::String(s) if s == "none" => {
+                        self.problem(v, "`none` has no default keys to replace; write `\"none\"` alone");
+                        return;
+                    }
+                    DeValue::String(_) => match self.command(v) {
+                        Some(c) => cmd = c,
+                        None => return,
+                    },
+                    _ => {
+                        self.problem(v, "`command` is a command name");
+                        return;
+                    }
+                },
+                "replace" => match v.get_ref() {
+                    DeValue::Boolean(b) => replace = *b,
+                    _ => {
+                        self.problem(v, "`replace` must be true or false");
+                        return;
+                    }
+                },
+                other => {
+                    self.problem(k, format!("unknown binding setting `{other}`; use `command` and `replace`"));
+                    return;
+                }
+            }
+        }
+        let Some(cmd) = cmd else { return };
+        if replace {
+            self.config.bindings.replace_defaults(&cmd);
+        }
+        bind(&mut self.config.bindings, Some(cmd));
     }
 
     /// `Some(None)` is `"none"`, which unbinds. A table is a shortcut: `{ run = "nvim" }`.
@@ -377,6 +419,36 @@ mod tests {
         assert!(msgs.iter().any(|m| m.starts_with("line 3:") && m.contains("shortcut table")), "{msgs:?}");
         assert!(matches!(c.bindings.after_leader(&parse_sequence("g e").unwrap()), Lookup::Unbound));
         assert_eq!(leader_action(&c, "v"), Some(Action::Split(Axis::Horizontal)));
+    }
+
+    #[test]
+    fn replace_drops_the_commands_default_keys() {
+        let text = "[keys.leader]\n\"|\" = { command = \"vsplit\", replace = true }\nV = \"split\"\n\"-\" = { command = \"split\", replace = true }\n[keys.direct]\n\"ctrl+h\" = { command = \"focus-left\", replace = true }\n\"ctrl+l\" = { command = \"focus-right\" }\n";
+        let (c, problems) = ok(text);
+        assert!(problems.is_empty(), "{problems:?}");
+        let unbound = |keys: &str| matches!(c.bindings.after_leader(&parse_sequence(keys).unwrap()), Lookup::Unbound);
+        for gone in ["v", "s", "S", "n", "h"] {
+            assert!(unbound(gone), "{gone}");
+        }
+        assert_eq!(leader_action(&c, "|"), Some(Action::Split(Axis::Horizontal)));
+        assert_eq!(leader_action(&c, "V"), Some(Action::Split(Axis::Vertical)), "an earlier config key stays");
+        assert_eq!(leader_action(&c, "-"), Some(Action::Split(Axis::Vertical)));
+        assert_eq!(leader_action(&c, "l"), Some(Action::Focus(Direction::Right)), "replace defaults to false");
+        assert!(c.bindings.direct(Chord::parse("ctrl+h").unwrap()).is_some_and(|b| b.name() == "focus-left"));
+    }
+
+    #[test]
+    fn a_bad_replace_table_costs_only_its_key() {
+        let text = "[keys.leader]\nX = { command = \"vsplit\", replace = \"yes\" }\nY = { command = \"nope\", replace = true }\nZ = { command = \"none\", replace = true }\nQ = { command = \"split\", run = \"nvim\" }\n";
+        let (c, problems) = ok(text);
+        let msgs: Vec<_> = problems.iter().map(|p| p.to_string()).collect();
+        assert_eq!(msgs.len(), 4, "{msgs:?}");
+        assert!(msgs[0].starts_with("line 2:") && msgs[0].contains("true or false"), "{msgs:?}");
+        assert!(msgs[1].starts_with("line 3:") && msgs[1].contains("unknown command"), "{msgs:?}");
+        assert!(msgs[2].starts_with("line 4:") && msgs[2].contains("none"), "{msgs:?}");
+        assert!(msgs[3].starts_with("line 5:") && msgs[3].contains("`run`"), "{msgs:?}");
+        assert_eq!(leader_action(&c, "v"), Some(Action::Split(Axis::Horizontal)), "nothing was replaced");
+        assert_eq!(leader_action(&c, "s"), Some(Action::Split(Axis::Vertical)));
     }
 
     #[test]

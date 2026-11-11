@@ -1,4 +1,5 @@
-//! The defaults are nvim's `CTRL-W` keys; config merges over them, so a user file only says what differs.
+//! The defaults are nvim's `CTRL-W` keys; config merges over them, so a user file only says what differs,
+//! and `replace` drops a command's default keys when the user's key should be its only one.
 
 use super::chord::Chord;
 use super::commands::{Command, command};
@@ -10,6 +11,10 @@ pub struct Bindings {
     direct: Vec<(Chord, Command)>,
     /// Sequences config set to `"none"`; a plugin's default key never claims them.
     unbound: Vec<Vec<Chord>>,
+    /// Sequences config bound, so `replace` never drops a key the user wrote.
+    configured: Vec<Vec<Chord>>,
+    /// Commands whose default keys config replaced; a plugin's suggested key is a default too.
+    replaced: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -102,10 +107,13 @@ impl Default for Bindings {
             leader_keys: Vec::new(),
             direct: Vec::new(),
             unbound: Vec::new(),
+            configured: Vec::new(),
+            replaced: Vec::new(),
         };
         for (keys, name) in DEFAULTS {
             b.bind_leader(parse_sequence(keys).expect("default keys parse"), command(name));
         }
+        b.configured.clear();
         b
     }
 }
@@ -113,10 +121,18 @@ impl Default for Bindings {
 impl Bindings {
     pub fn bind_leader(&mut self, keys: Vec<Chord>, cmd: Option<Command>) {
         self.leader_keys.retain(|(k, _)| *k != keys);
+        self.configured.push(keys.clone());
         match cmd {
             Some(cmd) => self.leader_keys.push((keys, cmd)),
             None => self.unbound.push(keys),
         }
+    }
+
+    /// Drops the keys `cmd` has by default, but none config bound, whichever order they came in.
+    pub fn replace_defaults(&mut self, cmd: &Command) {
+        let label = cmd.label();
+        self.leader_keys.retain(|(k, c)| c.label() != label || self.configured.contains(k));
+        self.replaced.push(label);
     }
 
     /// A plugin's suggested key, taken only if nothing has it, nothing it would hide or be
@@ -125,6 +141,9 @@ impl Bindings {
         if let Lookup::Found(c) = self.after_leader(&keys)
             && c.name() == name
         {
+            return Ok(());
+        }
+        if self.replaced.iter().any(|r| r == name) {
             return Ok(());
         }
         let taken = !matches!(self.after_leader(&keys), Lookup::Unbound)
@@ -248,6 +267,37 @@ mod tests {
         assert!(
             matches!(b.after_leader(&parse_sequence("g v").unwrap()), Lookup::Found(c) if c.name() == "visual-char")
         );
+    }
+
+    #[test]
+    fn replace_drops_only_the_default_keys_of_that_command() {
+        let mut b = Bindings::default();
+        b.bind_leader(parse_sequence("V").unwrap(), command("split"));
+        b.bind_leader(parse_sequence("|").unwrap(), command("split"));
+        b.replace_defaults(&command("split").unwrap());
+        for gone in ["s", "S", "n"] {
+            assert!(matches!(b.after_leader(&parse_sequence(gone).unwrap()), Lookup::Unbound), "{gone}");
+        }
+        assert_eq!(found(&b, "V"), Some(Action::Split(Axis::Vertical)), "config's own key stays");
+        assert_eq!(found(&b, "|"), Some(Action::Split(Axis::Vertical)));
+        assert_eq!(found(&b, "v"), Some(Action::Split(Axis::Horizontal)), "other commands keep theirs");
+    }
+
+    #[test]
+    fn replace_matches_the_count() {
+        let mut b = Bindings::default();
+        b.replace_defaults(&command("goto-tab 3").unwrap());
+        assert!(matches!(b.after_leader(&parse_sequence("3").unwrap()), Lookup::Unbound));
+        assert_eq!(found(&b, "4"), Some(Action::GotoTab(4)));
+    }
+
+    #[test]
+    fn replace_stops_a_plugins_suggested_key() {
+        let mut b = Bindings::default();
+        b.bind_leader(parse_sequence("g S").unwrap(), command("sessions.save"));
+        b.replace_defaults(&command("sessions.save").unwrap());
+        assert!(b.bind_plugin_default(parse_sequence("g s").unwrap(), "sessions.save").is_ok());
+        assert!(matches!(b.after_leader(&parse_sequence("g s").unwrap()), Lookup::Unbound));
     }
 
     #[test]

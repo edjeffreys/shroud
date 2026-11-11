@@ -108,7 +108,7 @@ htop redraws, so its PTY has 9 KiB to read.
 | change pane tags | `core/protocol/tags.rs` (names and limits), `shroud/server/api.rs` (`tag`, `list`), `shroud/server/layout_api.rs` (tags in layouts) |
 | change rearranging a tab (`set_layout`) | `core/layout/rearrange.rs` (checking it), `shroud/server/tab/rearrange.rs` (moving and starting panes), `shroud/server/layout_api.rs` (the request) |
 | change runtime key binds | `shroud/server/keymaps.rs` (`bind`, rebuilding the table), `plugins/raw.rs` (`keymap`), `core/input/bindings.rs` |
-| change shortcuts or command panes | `core/input/shortcut.rs` (the table, its errors, summaries, held keys), `core/config/settings.rs` `command` (tables in config), `shroud/server/shortcuts.rs` (opening panes, holding, jobs and their timeouts), `shroud/server/keymaps.rs` `target_command` (tables from the API and Lua) |
+| change shortcuts or command panes | `core/input/shortcut.rs` (the table, its errors, summaries, held keys), `core/config/settings.rs` `command` (tables in config) and `bind` (`{ command, replace }` tables), `shroud/server/shortcuts.rs` (opening panes, holding, jobs and their timeouts), `shroud/server/keymaps.rs` `target_command` (tables from the API and Lua) |
 | change how plugins run programs | `plugins/system.rs` (jobs and their threads), `plugins/raw.rs` (`system*` calls), `plugins/prelude.lua` (`shroud.system`), `plugins/lib.rs` (the loop's wake socket) |
 | change visual mode | `core/visual/keys.rs` (keys, counts, `y` as an operator), `core/visual/motion.rs` (where motions land, search), `core/visual/object.rs` (text objects), `core/visual/mod.rs` (cursor, selection, the view), `vt/scrollback.rs` (reading and scrolling history), `shroud/server/visual.rs` (routing, copying), `core/render/highlight.rs` (drawing the selection) |
 | change selecting with the mouse | `shroud/server/mouse_select.rs` (drags, double and triple clicks, the wheel in visual mode), `vt/scrollback.rs` `word_at` / `line_at` (Ghostty's word and line rules) |
@@ -147,7 +147,7 @@ htop redraws, so its PTY has 9 KiB to read.
 | **effect** | A libghostty-vt callback for something the terminal can't do itself: a query reply, title, clipboard, bell. |
 | **leader** | The prefix key (`Ctrl+Space` unless config says otherwise) that makes the next keys a shroud action instead of input. The default keys after it follow nvim's `CTRL-W` commands. |
 | **chord** | One key plus modifiers, as written in config (`ctrl+h`, `H`, `f5`). Shift folds into the character. |
-| **bindings** | The leader table (key sequences after the leader) and the direct table (single keys that act without it), each mapping to a command name. Config merges over the defaults. |
+| **bindings** | The leader table (key sequences after the leader) and the direct table (single keys that act without it), each mapping to a command name. Config merges over the defaults; a binding with `replace = true` also unbinds its command's default keys. |
 | **direct key** | A binding that acts without the leader. The pane never sees it. None by default. |
 | **command** | The config name of an action, such as `vsplit` or `focus-left`. It also decides what a count means. |
 | **problem** | A config mistake with its line. It costs only that setting; a syntax error keeps the running config. |
