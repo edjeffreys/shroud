@@ -30,9 +30,13 @@ pub fn run(env: &Env, r: &mut Report) {
 fn colours(c: &mut Client, env: &Env, r: &mut Report) {
     c.send(b"\x1b]11;rgb:1010/2020/3030\x1b\\");
     c.settle();
-    c.send(b"printf '\\033]11;?\\033\\\\'; read -rs -d '\\' -t 2 r; echo \"bg=${r#*rgb:}\"\r");
+    // Echo goes off before the question, not with `read -s`: a reply that beats `read` to the
+    // tty would otherwise be echoed onto the row the answer is printed on.
+    c.send(b"stty -echo; printf '\\033]11;?\\033\\\\'; read -r -d '\\' -t 2 r; stty echo; echo \"bg=${r#*rgb:}\"\r");
     r.check("a pane program's OSC 11 query gets the terminal's real background", c.wait_line("bg=1010/2020/3030"));
-    c.send(b"printf '\\033[?2031h'; echo ar$((0))med; read -rs -d n -t 3 r; echo \"scheme=${r#*997;}\"\r");
+    c.send(
+        b"stty -echo; printf '\\033[?2031h'; echo ar$((0))med; read -r -d n -t 3 r; stty echo; echo \"scheme=${r#*997;}\"\r",
+    );
     c.wait_line("ar0med");
     let at = c.mark();
     c.send(b"\x1b[?997;2n");
