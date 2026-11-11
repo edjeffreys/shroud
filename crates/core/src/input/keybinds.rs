@@ -66,6 +66,8 @@ pub enum Action {
     LastTab,
     LastSession,
     ToggleZoom,
+    /// Typed keys and pastes go to every pane drawn in the tab, not just the focused one.
+    ToggleBroadcast,
     FloatOrTile,
     RenameTab,
     Visual(Selecting),

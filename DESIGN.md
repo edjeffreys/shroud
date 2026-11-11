@@ -262,10 +262,11 @@ A binding can be a table instead of a command name: `{ run = "nvim" }` opens a c
 - **`run` types into a new pane's shell**, so the shell's environment applies. **A command pane closes when its command succeeds and holds when it fails**: closing on success suits programs you quit on purpose, while a failing test stays visible. `keep = true` always holds. While held, Enter reruns, `q` closes and any other key makes it an ordinary shell, so a held pane never traps you.
 - **`exec` runs in the server, single-threaded.** The child gets its own process group, `/dev/null` for input and an unlinked file for output (so a chatty command can't fill a pipe nobody reads), is reaped on SIGCHLD, and has a timeout that is one more deadline for `poll`. The result goes in the status bar.
 
-### Floats, zoom and frames
+### Floats, zoom, broadcast and frames
 
 - **Floats** sit beside the layout tree, not in it, placed in percentages of the tab so they survive resizes, and show or hide as a group. Directional focus from a float moves between floats, and past the last one returns to the tiles. A tab always keeps a tile.
 - **Zoom** draws one pane over the tab and resizes it; the others keep their sizes underneath, so nothing reflows.
+- **Broadcast** (D16) sends typed keys and pastes to every pane in the tab, like tmux's synchronize-panes. **It reaches only the panes that are drawn**: shown floats count, hidden ones don't, and a zoomed tab types into the zoomed pane alone. Keys never land somewhere you can't watch them, and zoom becomes a quick way to type into one pane without turning broadcast off. Each pane encodes the key with its own keyboard mode, so nvim and a plain shell each get the bytes they asked for. Mouse, focus reports, visual and jump mode stay with the focused pane. The unfocused borders take the `border.broadcast` token and the bar shows `BROADCAST`; the focused border keeps its colour, since the cursor still follows focus.
 - **Pane frames** (off by default) put the tiles inside one frame around the tab, so every pane has a border line above it for its title. This costs less than a frame per pane and falls out of the existing border drawing.
 
 ### Scrollback
@@ -311,3 +312,4 @@ An nvim-style cursor over a pane's history, for scrolling, searching and copying
 | D13 | Every command has a default key; every key is rebindable | a command without a key isn't accessible (§4) |
 | D14 | `Ctrl+Space 1`–`9` go to tabs; counts start with `0` | fast tab switching without a timer (§4) |
 | D15 | Shortcuts are config, with no default keys; command panes close on success | shortcuts exist only because a user wrote them (§7) |
+| D16 | Broadcast reaches only the panes that are drawn | typed keys never land where you can't see them; zoom types into one pane (§7) |

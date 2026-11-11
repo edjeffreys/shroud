@@ -1,5 +1,5 @@
-//! Routes decoded client input: the switcher if open, then keybinds, then the focused pane or
-//! the pane under the mouse.
+//! Routes decoded client input: the switcher if open, then keybinds, then the focused pane (every
+//! drawn pane while the tab broadcasts) or the pane under the mouse.
 
 use shroud_core::input::{Action, Event, MouseAction, MouseButton, MouseEvent, Outcome};
 use shroud_core::layout::PaneId;
@@ -32,8 +32,9 @@ impl Server {
                     // A held command pane takes Enter and q before its shell does.
                     Outcome::Passthrough if self.held_key(i, &k) => self.reap(),
                     Outcome::Passthrough => {
-                        let mut moved = true;
-                        self.with_focused(i, |p| moved = p.key(&k));
+                        let mut moved = false;
+                        let typed = self.with_receivers(i, |p| moved |= p.key(&k));
+                        moved |= !typed;
                         if quiet_before && !moved {
                             return;
                         }
@@ -51,7 +52,9 @@ impl Server {
                 }
             }
             Event::Mouse(m) => self.mouse(i, m),
-            Event::Paste(data) => self.with_focused(i, |p| p.paste(&data)),
+            Event::Paste(data) => {
+                self.with_receivers(i, |p| p.paste(&data));
+            }
             Event::Focus(gained) => self.with_focused(i, |p| p.focus(gained)),
             Event::ColorScheme { dark } => self.color_scheme_changed(i, dark),
             Event::OuterColor { slot, rgb } => self.outer_color(slot, rgb),
@@ -66,6 +69,20 @@ impl Server {
         }
     }
 
+    /// Typed input goes to the focused pane, or to every drawn pane while the tab broadcasts.
+    /// False when there was no pane to type into.
+    fn with_receivers(&mut self, i: usize, mut f: impl FnMut(&mut super::pane::Pane)) -> bool {
+        let Some(tab) = self.session_of(i).map(|s| s.tab_mut()) else { return false };
+        let mut any = false;
+        for id in tab.receivers() {
+            if let Some(p) = tab.panes.get_mut(&id) {
+                f(p);
+                any = true;
+            }
+        }
+        any
+    }
+
     pub(super) fn action(&mut self, i: usize, action: Action) {
         let Some(session) = self.session_of(i) else { return };
         let before = session.tab().focused;
@@ -73,7 +90,7 @@ impl Server {
             Action::Detach => self.clients[i].exit(ExitReason::Detached),
             Action::SendLeader => {
                 let leader = self.settings.bindings.leader.to_event();
-                self.with_focused(i, |p| {
+                self.with_receivers(i, |p| {
                     p.key(&leader);
                 });
             }
@@ -110,6 +127,13 @@ impl Server {
             }
             Action::Visual(s) => self.enter_visual(i, s),
             Action::ToggleZoom => session.tab_mut().toggle_zoom(),
+            Action::ToggleBroadcast => {
+                let tab = session.tab_mut();
+                tab.broadcast = !tab.broadcast;
+                let on = tab.broadcast;
+                // The bar's tag lasts, but a zoomed tab shows ZOOM there instead.
+                session.status.say(if on { "broadcast on" } else { "broadcast off" });
+            }
             Action::FloatOrTile => {
                 if let Err(why) = session.tab_mut().float_or_tile() {
                     session.status.say(why);

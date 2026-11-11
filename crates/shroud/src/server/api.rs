@@ -312,7 +312,7 @@ impl Server {
                                 }))
                             })
                             .collect();
-                        json!({"active": ti == s.active, "panes": panes})
+                        json!({"active": ti == s.active, "broadcast": t.broadcast, "panes": panes})
                     })
                     .collect();
                 json!({"name": s.name, "tabs": tabs})

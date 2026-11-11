@@ -21,7 +21,7 @@ shroud is young (0.1). It's developed on macOS and also builds and passes its te
 
 Features:
 
-- sessions, tabs, splits, floating panes and zoom, with nvim's `CTRL-W` keys after a leader;
+- sessions, tabs, splits, floating panes and zoom, with nvim's `CTRL-W` keys after a leader, and typing into every pane of a tab at once;
 - named sessions you create, switch between, rename and close from the CLI, leader keys or a fuzzy switcher;
 - detach and reattach with the screen restored; the server keeps your shells running;
 - prompt jumping, copying a command's output, and status-bar badges for commands finishing in other panes;
@@ -150,6 +150,7 @@ The leader is **Ctrl+Space**. After it, keys follow nvim's `Ctrl+W` window comma
 | `F` | open another floating pane (shroud only) |
 | `e` | float the focused pane, or tile a floating one (shroud only) |
 | `z` | zoom: the focused pane fills the tab until you press it again or move focus (shroud only) |
+| `B` | broadcast: what you type and paste goes to every pane you can see in the tab, until you press it again (tmux's `synchronize-panes`). Floats count while shown; a zoomed tab types into the zoomed pane alone |
 | `,` | name this tab; an empty name clears it (shroud only) |
 | `V` | visual mode: scroll back, search and copy with nvim keys (shroud only) |
 | `g v` / `g V` / `g Ctrl+v` | visual mode with a character, line or block selection already started (shroud only) |
@@ -219,9 +220,9 @@ status.bg = 0
 "ctrl+l" = "focus-right"
 ```
 
-Theme tokens: `border.active`, `border.inactive`, `title.active`, `title.inactive` (pane titles, with `pane_frames`), `status.fg`, `status.bg`, `status.mode`, `status.session`, `status.tab`, `status.tab_active`, `status.message`, `switcher.border`, `switcher.match`, `switcher.selected`, `badge.error`, `badge.done`.
+Theme tokens: `border.active`, `border.inactive`, `border.broadcast` (the other panes' borders while a tab broadcasts), `title.active`, `title.inactive` (pane titles, with `pane_frames`), `status.fg`, `status.bg`, `status.mode`, `status.session`, `status.tab`, `status.tab_active`, `status.message`, `switcher.border`, `switcher.match`, `switcher.selected`, `badge.error`, `badge.done`.
 
-Commands: `vsplit`, `split`, `focus-left`/`-down`/`-up`/`-right`, `focus-next`, `focus-prev`, `focus-last-used`, `focus-first`, `focus-last`, `close`, `only`, `grow-height`, `shrink-height`, `grow-width`, `shrink-width`, `equalize`, `maximize-height`, `maximize-width`, `move-left`/`-down`/`-up`/`-right`, `exchange`, `rotate`, `prompt-prev`, `prompt-next`, `copy-output`, `copy-command`, `new-tab`, `move-to-new-tab`, `next-tab`, `prev-tab`, `switcher`, `new-session`, `rename-session`, `next-session`, `prev-session`, `detach`, `send-leader`, `goto-tab`, `last-tab`, `last-session`, `zoom`, `float-or-tile`, `rename-tab`, `visual`, `visual-char`, `visual-line`, `visual-block`, and `frame-time` (`g p`), which toggles the previous render's cost in the status bar. A binding can fix a command's count, as `"alt+3" = "goto-tab 3"`; the defaults bind `1`–`9` that way. Counts typed after the leader still work with rebound keys. If an unbound `ctrl+<letter>` or arrow follows the leader, shroud treats it as the plain letter, as nvim does.
+Commands: `vsplit`, `split`, `focus-left`/`-down`/`-up`/`-right`, `focus-next`, `focus-prev`, `focus-last-used`, `focus-first`, `focus-last`, `close`, `only`, `grow-height`, `shrink-height`, `grow-width`, `shrink-width`, `equalize`, `maximize-height`, `maximize-width`, `move-left`/`-down`/`-up`/`-right`, `exchange`, `rotate`, `prompt-prev`, `prompt-next`, `copy-output`, `copy-command`, `new-tab`, `move-to-new-tab`, `next-tab`, `prev-tab`, `switcher`, `new-session`, `rename-session`, `next-session`, `prev-session`, `detach`, `send-leader`, `goto-tab`, `last-tab`, `last-session`, `zoom`, `broadcast`, `float-or-tile`, `rename-tab`, `visual`, `visual-char`, `visual-line`, `visual-block`, and `frame-time` (`g p`), which toggles the previous render's cost in the status bar. A binding can fix a command's count, as `"alt+3" = "goto-tab 3"`; the defaults bind `1`–`9` that way. Counts typed after the leader still work with rebound keys. If an unbound `ctrl+<letter>` or arrow follows the leader, shroud treats it as the plain letter, as nvim does.
 
 ### Shortcuts
 
@@ -297,7 +298,7 @@ Underneath is newline-delimited JSON on `control.sock` in shroud's runtime direc
 ```
 
 The commands are:
-- **panes:** `list` (each pane's `process` is its foreground program, when that isn't the shell), `split` (`pane`, `dir`, `cwd`, `command`, `focus`, `wait`, `close_on_exit` or `keep`, `float` with `x`, `y`, `w`, `h` in percent), `send`, `output`, `capture` (`history` for everything kept), `close`, `focus`;
+- **panes:** `list` (each pane's `process` is its foreground program, when that isn't the shell, and each tab says whether it `broadcast`s), `split` (`pane`, `dir`, `cwd`, `command`, `focus`, `wait`, `close_on_exit` or `keep`, `float` with `x`, `y`, `w`, `h` in percent), `send`, `output`, `capture` (`history` for everything kept), `close`, `focus`;
 - **commands:** `run` (`command` such as `"zoom"`, `"goto-tab 3"`, `"sessions.save"` or a shortcut table like `{"exec": ["git", "pull"]}`, as if `client` pressed its key; without `client`, a client on `session`), so anything a key can do, a script or plugin can too;
 - **layouts and sessions:** `layout` (a tab in the layout-file model, with sizes in percent), `apply_layout` (a new tab from one), `set_layout` (rearrange an existing tab: a pane node with `pane` moves that pane, one without starts a new one, and every tile must be placed), `pane_title` (names a pane on its border when `pane_frames` is on, in place of its program's title; no `title` goes back to that), `tag` (a small string a plugin keeps on a pane, like tmux's `@user` options: shown in `list` and `layout`, taken by `apply_layout` and `set_layout` for new panes, and saved by `sessions`; no `value` removes it), `session_new`, `session_rename`, `session_kill`, `tab_new`;
 - **for plugins:** `message` (text in the status bar for a few seconds), `status_take` / `status_set` / `status_release` (draw the status bar yourself: you get a `status` event with each client's state whenever it changes, and answer with spans for the left and right), `overlay_open` (optionally for one `client`), `overlay_update` and `overlay_close` (a box of text whose spans take a theme token or colour for `style` and `bg`, plus `bold` and `italic`; a modal one sends its keys to you, and Escape always closes it), `register_command` (a `plugin.command` name with a suggested key, used only if it's free), `bind` (a key to any command or shortcut table, over config, until the connection closes; no `command` unbinds) and `bindings`;

@@ -186,6 +186,21 @@ fn tabs(c: &mut Client, r: &mut Report) {
         "leader z again restores the split",
         c.wait(WAIT, |c| c.screen().contains('│') && !c.status().contains("ZOOM")),
     );
+
+    c.send(&[LEADER, b"B"].concat());
+    r.check("leader B broadcasts and the bar says so", c.wait(WAIT, |c| c.status().contains("BROADCAST")));
+    // The typed line holds `$((3*5))`, so only the output says `bc-15`.
+    c.send(b"echo bc-$((3*5))\r");
+    r.check("a broadcast line runs in both panes", c.wait(WAIT, |c| c.screen().matches("bc-15").count() == 2));
+    c.send(&[LEADER, b"B"].concat());
+    c.wait(WAIT, |c| !c.status().contains("BROADCAST"));
+    c.send(b"echo solo-$((2*3))\r");
+    c.wait(WAIT, |c| c.screen().contains("solo-6"));
+    c.settle();
+    r.check(
+        "leader B again types into the focused pane alone",
+        c.screen().matches("solo-6").count() == 1 && !c.status().contains("BROADCAST"),
+    );
 }
 
 fn visual(c: &mut Client, r: &mut Report) {

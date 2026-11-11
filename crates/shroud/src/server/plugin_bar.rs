@@ -26,7 +26,7 @@ pub fn state(s: &Status, width: u16) -> Value {
         s.tabs.iter().map(|t| json!({"name": t.name, "active": t.active, "badge": t.badge.map(badge)})).collect();
     let badges: Vec<Value> = s.badges.iter().map(|b| json!({"pane": b.pane, "badge": badge(b.badge)})).collect();
     json!({
-        "session": s.session, "mode": mode, "selection": selection, "zoomed": s.zoomed, "tabs": tabs, "message": s.message,
+        "session": s.session, "mode": mode, "selection": selection, "zoomed": s.zoomed, "broadcast": s.broadcast, "tabs": tabs, "message": s.message,
         "alert": s.alert, "clock": s.clock, "cwd": s.cwd, "branch": s.branch, "badges": badges, "width": width,
     })
 }
