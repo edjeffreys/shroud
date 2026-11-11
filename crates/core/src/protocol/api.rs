@@ -92,6 +92,10 @@ pub struct LayoutSpec {
     pub root: LayoutNode,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub floats: Vec<FloatNode>,
+    /// The floats are there but toggled out of sight. Absent means shown, as a layout
+    /// file's floats should be.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub floats_hidden: bool,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
@@ -560,6 +564,9 @@ mod tests {
         );
         assert!(matches!(&root.parts[1], LayoutNode::Split(s) if s.split == Dir::Down));
         assert_eq!(layout.floats[0].at.w, 50);
+        assert!(!layout.floats_hidden, "a layout's floats show unless it says otherwise");
+        let (_, r) = parse_request(r#"{"cmd":"apply_layout","layout":{"root":{},"floats":[{}],"floats_hidden":true}}"#);
+        assert!(matches!(r, Ok(Request::ApplyLayout { layout, .. }) if layout.floats_hidden));
         assert!(parse_request(r#"{"cmd":"apply_layout","layout":{"root":{"cwd":"/","colour":1}}}"#).1.is_err());
     }
 

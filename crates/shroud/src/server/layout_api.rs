@@ -42,7 +42,7 @@ impl Server {
                 pane: pane_node(t, f.pane, None),
             })
             .collect();
-        Ok(json!({"layout": LayoutSpec { root, floats }}))
+        Ok(json!({"layout": LayoutSpec { root, floats, floats_hidden: !t.floats.is_empty() && !t.floats_shown }}))
     }
 
     pub(super) fn apply_layout(&mut self, session: Option<&str>, layout: LayoutSpec) -> Result<Value, String> {
@@ -53,7 +53,7 @@ impl Server {
         let s = &mut self.sessions[si];
         let at = s.add_tab_from_shape(&shape, &base).map_err(|e| format!("layout: {e}"))?;
         let tab = &mut s.tabs[at];
-        for f in layout.floats {
+        for f in &layout.floats {
             let rect = FloatRect::new(f.at.x, f.at.y, f.at.w, f.at.h).ok_or("a float must fit inside the tab")?;
             let cwd = f.pane.cwd.as_deref().map(|c| expand(&base, c));
             let id = tab.new_float(rect, cwd.as_deref(), false).map_err(|e| format!("float: {e}"))?;
@@ -61,6 +61,8 @@ impl Server {
                 p.type_line(cmd);
             }
         }
+        // new_float shows them; a saved session puts back whatever was showing when it was saved.
+        tab.floats_shown = !layout.floats_hidden;
         self.invalidate();
         Ok(json!({"tab": at + 1}))
     }
